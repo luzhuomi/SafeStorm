@@ -1,3 +1,4 @@
+/*
 package storm.scala.examples
 
 import storm.scala.dsl._
@@ -14,10 +15,9 @@ import util.Random
 
 
 
+object WordCountTopologyT {
 
-object WordCountTopologyP {
-
-  // abstract case class TStormSpout[OutTup](spout:StormSpout) 
+  // abstract case class TStormSpout[OutTup](spout:StormSpout)
   // will run into overide keyword problem. let's use trait
 
   trait StormSpoutT[Out]{def spout:StormSpout}
@@ -33,9 +33,35 @@ object WordCountTopologyP {
   abstract class TopWithBolt extends TopWithSpout;
 
 
-  case class TopologyBuilderT[+State,+Out](builder:TopologyBuilder,output_name:String) {
+  case class TopologyBuilderT[+State,Out](builder:TopologyBuilder,output_name:String) {
     def createTopology = builder.createTopology
+
+    def init : TopologyBuilderT[TopEmpty,Out] =
+      new TopologyBuilderT(builder,output_name)
+
+    def >> [NextOut]
+      ( spout_name:String
+      , ts:StormSpoutT[NextOut]
+      , threadMax:Int)
+      (implicit evS:State <:< TopEmpty) : TopologyBuilderT[TopWithSpout,NextOut] = {
+
+        builder.setSpout(spout_name, ts.spout, threadMax)
+        new TopologyBuilderT[TopWithSpout,NextOut](builder,spout_name)
+      }
+
+
+    def >>> [NextOut,State <: TopWithSpout]
+      ( bolt_name:String
+      , tb:StormBoltT[Out,NextOut]
+      , threadMax:Int)
+      ( inDecl: BoltDeclarer => BoltDeclarer )
+      (implicit evS: State <:< TopWithSpout) : TopologyBuilderT[TopWithBolt,NextOut] = {
+        val i = builder.setBolt(bolt_name,tb.bolt, threadMax)
+        inDecl(i)
+        new TopologyBuilderT[TopWithBolt,NextOut](builder,bolt_name)
+      } // TODO: test other inDec with different field selection
   }
+
 
 
 
@@ -86,50 +112,11 @@ object WordCountTopologyP {
   }
 
 
-  def addSpout[Out](top:TopologyBuilderT[TopEmpty,_])
-    ( spout_name:String
-    , ts:StormSpoutT[Out]
-    , threadMax:Int) : TopologyBuilderT[TopWithSpout,Out] = 
-    top match {
-      case TopologyBuilderT(builder,_) => {
-        builder.setSpout(spout_name, ts.spout, threadMax)
-        TopologyBuilderT[TopWithSpout,Out](builder,spout_name)   
-      }
-    }
-
-  
-  def addBolt[In,Out,State <: TopWithSpout](top:TopologyBuilderT[State,In])
-    ( bolt_name:String
-    , tb:StormBoltT[In,Out]
-    , threadMax:Int) 
-    ( inDecl: BoltDeclarer => BoltDeclarer ) : TopologyBuilderT[TopWithBolt,Out] = 
-    top match {
-      case TopologyBuilderT(builder,output_name) => {
-        val i = builder.setBolt(bolt_name,tb.bolt, threadMax)
-        inDecl(i)
-        TopologyBuilderT[TopWithBolt,Out](builder,bolt_name)   
-      }
-    } // TODO: test other inDec with different field selection
-    
-
-
   def main(args: Array[String]) = {
-    /*
-
-    val builder = new TopologyBuilder
-
-    builder.setSpout("randsentence", new RandomSentenceSpout, 5)
-    builder.setBolt("split", new SplitSentence, 8)
-        .shuffleGrouping("randsentence")
-    builder.setBolt("count", new WordCount, 12)
-        .fieldsGrouping("split", new Fields("word"))
-    */
-
-    val builderT = addBolt(
-                    addBolt(addSpout(new TopologyBuilderT(new TopologyBuilder,""))("randsentence", new RandomSentenceSpoutT(new RandomSentenceSpout), 8)) 
-                      ("split", new SplitSentenceT(new SplitSentence), 8)( _.shuffleGrouping("randsentence"))
-                  ) ("count", new WordCountT(new WordCount), 12)( _.fieldsGrouping("split", new Fields("word")))
-
+    val builderT = (new TopologyBuilderT(new TopologyBuilder,"")).init
+                   .>> ("randsentence", new RandomSentenceSpoutT(new RandomSentenceSpout), 8)
+                   .>>> ("split", new SplitSentenceT(new SplitSentence), 8)( _.shuffleGrouping("randsentence"))
+                   .>>> ("count", new WordCountT(new WordCount), 12)( _.fieldsGrouping("split", new Fields("word")))
 
     val conf = new Config
     conf.setDebug(true)
@@ -141,3 +128,4 @@ object WordCountTopologyP {
     cluster.shutdown
   }
 }
+*/
