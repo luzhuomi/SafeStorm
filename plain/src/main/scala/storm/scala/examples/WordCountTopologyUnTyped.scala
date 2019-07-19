@@ -13,7 +13,7 @@ import scala.util.Random
 
 import java.text.BreakIterator
 
-object WordCountTopologyTypeTyped  {
+object WordCountTopologyUnTyped  {
 
   class RandomSentenceSpout extends BaseRichSpout {
     

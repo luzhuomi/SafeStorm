@@ -9,13 +9,17 @@ import org.apache.storm.tuple.{Fields, Tuple, Values}
 import org.apache.storm.utils.Utils
 import org.apache.storm.{Config, LocalCluster, StormSubmitter}
 
-import scala.util.Random
 
+
+import scala.util.Random
 
 import java.text.BreakIterator
 
+import storm.scala.examples.StormPhantom._
+
 object WordCountTopology  {
 
+  case class RandomSentenceSpoutT (spout: RandomSentenceSpout) extends StormSpoutT[String]
   class RandomSentenceSpout extends BaseRichSpout {
     
     var _collector:SpoutOutputCollector = _
@@ -39,9 +43,8 @@ object WordCountTopology  {
     } 
   }
 
-
+  case class SplitSentenceBoltT (bolt:SplitSentenceBolt) extends StormBoltT[String,String]
   class SplitSentenceBolt extends BaseBasicBolt {
-    
     override def execute(input: Tuple, collector: BasicOutputCollector): Unit = {
       
       val sentence = input.getString(0)
@@ -68,7 +71,7 @@ object WordCountTopology  {
   }
 
 
-
+  case class WordCountBoltT (bolt:WordCountBolt) extends StormBoltT[String,(String,Int)]
   class WordCountBolt extends BaseBasicBolt{
     
     val counts = scala.collection.mutable.Map[String,Int]()
@@ -87,31 +90,29 @@ object WordCountTopology  {
       collector.emit(new Values(word,counts))
     }
     
-    override def declareOutputFields(declarer: OutputFieldsDeclarer): Unit = {
-      
+    override def declareOutputFields(declarer: OutputFieldsDeclarer): Unit = {     
       declarer.declare(new Fields("word","count"));
     }
-    
   }
 
   def main(args: Array[String]): Unit = {
-    println("Hello, world!")
-    val builder = new TopologyBuilder
-    builder.setSpout("spout", new RandomSentenceSpout, 5)
-    builder.setBolt("split", new SplitSentenceBolt, 8).shuffleGrouping("spout")
-    builder.setBolt("count", new WordCountBolt, 12).fieldsGrouping("split", new Fields("word"))
+
+    val builderT = (new TopologyBuilderT(new TopologyBuilder,"")).init
+                   .>> ("randsentence", new RandomSentenceSpoutT(new RandomSentenceSpout), 8)
+                   .>>> ("split", new SplitSentenceBoltT(new SplitSentenceBolt), 8)( _.shuffleGrouping("randsentence"))
+                   .>>> ("count", new WordCountBoltT(new WordCountBolt), 12)( _.fieldsGrouping("split", new Fields("word")))
     
     val conf = new Config()
     conf.setDebug(true)
     
     if (args != null && args.length > 0) {
       conf.setNumWorkers(3)
-      StormSubmitter.submitTopology(args(0), conf, builder.createTopology())
+      StormSubmitter.submitTopology(args(0), conf, builderT.createTopology())
     }
     else {
       conf.setMaxTaskParallelism(3)
       val cluster = new LocalCluster
-      cluster.submitTopology("word-count", conf, builder.createTopology())
+      cluster.submitTopology("word-count", conf, builderT.createTopology())
       Thread.sleep(10000)
       cluster.shutdown()
     }
