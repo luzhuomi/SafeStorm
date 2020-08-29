@@ -28,7 +28,7 @@ object WordCountTopologyUnTyped  {
       _collector.emit(new Values(sentence))
     }
     
-    override def open(conf: java.util.Map[_, _], context: TopologyContext, collector: SpoutOutputCollector): Unit = {
+    override def open(conf: java.util.Map[String, Object], context: TopologyContext, collector: SpoutOutputCollector): Unit = {
       _collector = collector
       _rand = Random
     }

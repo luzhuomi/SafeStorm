@@ -12,7 +12,7 @@ resolvers += "Maven Repository" at "http://mvnrepository.com/artifact/"
 resolvers += "clojars" at "https://clojars.org/repo"
 
 
-libraryDependencies += "org.apache.storm" % "storm-core" % "1.2.2" % "provided" exclude("junit", "junit")
+libraryDependencies += "org.apache.storm" % "storm-core" % "2.2.0" % "provided" exclude("junit", "junit")
 
 scalacOptions ++= Seq("-feature", "-deprecation", "-Yresolve-term-conflict:package")
 
